@@ -1,0 +1,49 @@
+#!/usr/bin/env fish
+
+set monitor (hyprctl monitors | grep "Monitor " | awk '{print $2}')
+
+switch $argv[1]
+
+    case set
+        if test -z "$argv[2]"
+            echo "Usage: mpwall set <path-to-video.mp4>"
+            exit 1
+        end
+        if not test -f "$argv[2]"
+            echo "✗ File not found: $argv[2]"
+            exit 1
+        end
+        pkill mpvpaper
+        nohup mpvpaper -o "--loop --no-audio" $monitor $argv[2] &> /dev/null &
+        disown
+        echo "✓ Wallpaper set: $argv[2]"
+
+    case enable
+        set current (pgrep -a mpvpaper | awk '{print $NF}')
+        if test -z "$current"
+            echo "✗ No wallpaper is currently running. Use: mpwall set <video.mp4> first"
+            exit 1
+        end
+        sed -i '/mpvpaper/d' ~/.config/hypr/hyprland.conf
+        echo "exec-once = mpvpaper -o \"--loop --no-audio\" $monitor $current" >> ~/.config/hypr/hyprland.conf
+        echo "✓ Autostart enabled for: $current"
+
+    case stop
+        pkill mpvpaper
+        echo "✓ Wallpaper stopped (autostart unchanged)"
+
+    case disable
+        pkill mpvpaper
+        sed -i '/mpvpaper/d' ~/.config/hypr/hyprland.conf
+        echo "✓ Wallpaper stopped and autostart disabled"
+
+    case '*'
+        echo "mpwall - live wallpaper manager"
+        echo ""
+        echo "Usage:"
+        echo "  mpwall set <video.mp4>  → set wallpaper now"
+        echo "  mpwall enable           → save current wallpaper to autostart"
+        echo "  mpwall stop             → stop wallpaper (keep autostart)"
+        echo "  mpwall disable          → stop wallpaper + remove autostart"
+
+end
