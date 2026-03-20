@@ -9,6 +9,10 @@ keywords = ["wallpaper", "hyprland", "wayland", "tui", "mpvpaper"]
 categories = ["command-line-utilities"]
 readme = "README.md"
 
+[dev-dependencies]
+tempfile = "3"
+toml = "0.8"
+
 [[bin]]
 name = "mpwall"
 path = "src/main.rs"
