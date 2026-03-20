@@ -13,36 +13,36 @@
 
 ## Phase 1 — Initialization
 
-- [ ] TASK-001: Initialize Rust project with `cargo init`, set up `Cargo.toml` with all dependencies
-- [ ] TASK-002: Create full project folder structure (`src/cli/`, `src/core/`, `src/tui/`, `src/tui/panels/`)
-- [ ] TASK-003: Add `.gitignore` (Rust-standard + editor files)
-- [ ] TASK-004: Create placeholder `mod.rs` files for all modules to ensure project compiles from day one
-- [ ] TASK-005: Add `PKGBUILD` stub in repo root
+- [x] TASK-001: Initialize Rust project with `cargo init`, set up `Cargo.toml` with all dependencies
+- [x] TASK-002: Create full project folder structure (`src/cli/`, `src/core/`, `src/tui/`, `src/tui/panels/`)
+- [x] TASK-003: Add `.gitignore` (Rust-standard + editor files)
+- [x] TASK-004: Create placeholder `mod.rs` files for all modules to ensure project compiles from day one
+- [x] TASK-005: Add `PKGBUILD` stub in repo root
 
 ---
 
 ## Phase 2 — Foundation (Core Layer)
 
-- [ ] TASK-006: Implement `core/config.rs` — TOML config read/write with hardcoded defaults, schema version field
-- [ ] TASK-007: Implement `core/state.rs` — JSON state read/write for active wallpaper per monitor (path, PID, autostart)
-- [ ] TASK-008: Implement `core/monitor.rs` — enumerate monitors via `hyprctl monitors -j`, parse JSON output
-- [ ] TASK-009: Implement `core/process.rs` — spawn mpvpaper process, kill process, verify PID liveness
-- [ ] TASK-010: Write unit tests for `core/state.rs` (mock file I/O)
-- [ ] TASK-011: Write unit tests for `core/monitor.rs` (mock monitor data for single/multi-monitor)
+- [x] TASK-006: Implement `core/config.rs` — TOML config read/write with hardcoded defaults, schema version field
+- [x] TASK-007: Implement `core/state.rs` — JSON state read/write for active wallpaper per monitor (path, PID, autostart)
+- [x] TASK-008: Implement `core/monitor.rs` — enumerate monitors via `hyprctl monitors -j`, parse JSON output
+- [x] TASK-009: Implement `core/process.rs` — spawn mpvpaper process, kill process, verify PID liveness
+- [x] TASK-010: Write unit tests for `core/state.rs` (mock file I/O) — embedded in state.rs
+- [x] TASK-011: Write unit tests for `core/monitor.rs` (mock monitor data for single/multi-monitor) — embedded in monitor.rs
 
 ---
 
 ## Phase 3 — CLI Commands
 
-- [ ] TASK-012: Set up `clap` command definitions in `cli/mod.rs` — root command, subcommands: `set`, `stop`, `enable`, `disable`, `status`, `list`
-- [ ] TASK-013: Implement `set` command — kill existing mpvpaper for target monitor, spawn new mpvpaper, write state.json
-- [ ] TASK-014: Implement `stop` command — kill mpvpaper process(es), update state.json
-- [ ] TASK-015: Implement `enable` command — write autostart entry to `hyprland.conf` inside delimited block (`# mpwall start` / `# mpwall end`)
-- [ ] TASK-016: Implement `disable` command — stop wallpaper + remove delimited block from `hyprland.conf`
-- [ ] TASK-017: Implement `status` command — read state.json, verify PID liveness, print formatted colored output
-- [ ] TASK-018: Implement `list` command — scan wallpaper directory, filter by video extensions, print formatted list
-- [ ] TASK-019: Implement `--monitor` flag support across `set`, `stop` commands
-- [ ] TASK-020: Validate all CLI error paths — friendly, actionable error messages for every known failure mode
+- [x] TASK-012: Set up `clap` command definitions in `cli/mod.rs` — root command, subcommands: `set`, `stop`, `enable`, `disable`, `status`, `list`
+- [x] TASK-013: Implement `set` command — kill existing mpvpaper for target monitor, spawn new mpvpaper, write state.json
+- [x] TASK-014: Implement `stop` command — kill mpvpaper process(es), update state.json
+- [x] TASK-015: Implement `enable` command — write autostart entry to `hyprland.conf` inside delimited block (`# mpwall start` / `# mpwall end`)
+- [x] TASK-016: Implement `disable` command — stop wallpaper + remove delimited block from `hyprland.conf`
+- [x] TASK-017: Implement `status` command — read state.json, verify PID liveness, print formatted colored output
+- [x] TASK-018: Implement `list` command — scan wallpaper directory, filter by video extensions, print formatted list
+- [x] TASK-019: Implement `--monitor` flag support across `set`, `stop` commands
+- [x] TASK-020: Validate all CLI error paths — friendly, actionable error messages for every known failure mode
 
 ---
 
