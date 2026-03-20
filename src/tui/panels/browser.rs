@@ -2,7 +2,7 @@ use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent, KeyEventKind};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
     Frame,
@@ -14,6 +14,8 @@ use crate::{
 };
 
 pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
+    let c = app.colors();
+
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Min(0), Constraint::Length(3)])
@@ -28,71 +30,96 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
         .map(|e| e.wallpaper_path.clone())
         .unwrap_or_default();
 
+    let total = files.len();
+
     let items: Vec<ListItem> = files
         .iter()
         .map(|entry| {
             let is_active = entry.path.to_string_lossy() == active_path;
             let size_str = format_size(entry.size);
-            let indicator = if is_active { " ▶" } else { "  " };
-            let style = if is_active {
-                Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD)
+            let (indicator, name_style) = if is_active {
+                (
+                    "▶ ",
+                    Style::default().fg(c.active_item).add_modifier(Modifier::BOLD),
+                )
             } else {
-                Style::default()
+                ("  ", Style::default().fg(c.text_primary))
             };
             ListItem::new(Line::from(vec![
-                Span::styled(format!("{} {}", indicator, entry.name), style),
+                Span::styled(format!(" {}{}", indicator, entry.name), name_style),
                 Span::styled(
-                    format!("  ({})", size_str),
-                    Style::default().fg(Color::DarkGray),
+                    format!("  {}", size_str),
+                    Style::default().fg(c.text_muted),
                 ),
             ]))
         })
         .collect();
 
     let title = if app.browser_filter_mode {
-        format!(" Browser — filter: {}_ ", app.browser_filter)
+        format!(" Browser  /{}_ ", app.browser_filter)
     } else if !app.browser_filter.is_empty() {
-        format!(" Browser — [{}] ", app.browser_filter)
+        format!(" Browser  [{}]  {}/{} ", app.browser_filter, total, app.browser_files.len())
     } else {
-        " Browser ".to_string()
+        format!(" Browser  {} files ", total)
     };
 
-    let visible_len = files.len();
-    let selected = app.browser_selected.min(visible_len.saturating_sub(1));
+    let selected = app.browser_selected.min(total.saturating_sub(1));
     let mut list_state = ListState::default();
     if !files.is_empty() {
         list_state.select(Some(selected));
     }
 
-    let list = List::new(items)
+    let empty_msg = if app.browser_filter.is_empty() {
+        vec![ListItem::new(Line::from(Span::styled(
+            "  No video files found in wallpaper directory.",
+            Style::default().fg(c.text_muted),
+        )))]
+    } else {
+        vec![ListItem::new(Line::from(Span::styled(
+            format!("  No results for '{}'", app.browser_filter),
+            Style::default().fg(c.text_muted),
+        )))]
+    };
+
+    let display_items = if items.is_empty() { empty_msg } else { items };
+
+    let list = List::new(display_items)
         .block(
             Block::default()
                 .borders(Borders::ALL)
-                .title(title)
-                .border_style(Style::default().fg(Color::Cyan)),
+                .title(Span::styled(title, Style::default().fg(c.title).add_modifier(Modifier::BOLD)))
+                .border_style(Style::default().fg(c.border_active)),
         )
         .highlight_style(
             Style::default()
-                .bg(Color::DarkGray)
+                .fg(c.highlight_fg)
+                .bg(c.highlight_bg)
                 .add_modifier(Modifier::BOLD),
         );
 
     f.render_stateful_widget(list, chunks[0], &mut list_state);
 
-    let filter_hint = if app.browser_filter_mode {
-        format!(" / Filter: {}_ (Esc to clear)", app.browser_filter)
+    let hint_text = if app.browser_filter_mode {
+        format!(" FILTER: {}▌  Esc: cancel  Enter: confirm", app.browser_filter)
     } else {
-        " Press / to filter  |  Enter: set wallpaper  |  a: add to library".to_string()
+        " /: filter  Enter: set wallpaper  a: add to library".to_string()
     };
-    let filter_bar = Paragraph::new(filter_hint)
-        .style(Style::default().fg(Color::DarkGray))
-        .block(Block::default().borders(Borders::ALL));
+    let hint_style = if app.browser_filter_mode {
+        Style::default().fg(c.title)
+    } else {
+        Style::default().fg(c.text_muted)
+    };
+    let filter_bar = Paragraph::new(hint_text)
+        .style(hint_style)
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(c.border_inactive)),
+        );
     f.render_widget(filter_bar, chunks[1]);
 }
 
 pub fn handle_key(app: &mut App, key: KeyEvent) -> Result<()> {
-    // Only handle key press events, ignore key repeat and release
-    // This prevents cmd_set firing dozens of times when Enter is held
     if key.kind != KeyEventKind::Press {
         return Ok(());
     }
@@ -136,6 +163,12 @@ pub fn handle_key(app: &mut App, key: KeyEvent) -> Result<()> {
                 app.browser_selected += 1;
             }
         }
+        KeyCode::Char('g') => {
+            app.browser_selected = 0;
+        }
+        KeyCode::Char('G') => {
+            if file_count > 0 { app.browser_selected = file_count - 1; }
+        }
         KeyCode::Enter => {
             let entry_data = app
                 .filtered_files()
@@ -146,7 +179,7 @@ pub fn handle_key(app: &mut App, key: KeyEvent) -> Result<()> {
                 match cmd_set(&path, None) {
                     Ok(_) => {
                         app.refresh_state()?;
-                        app.set_message(format!("Set: {}", name), false);
+                        app.set_message(format!("▶ Now playing: {}", name), false);
                     }
                     Err(e) => app.set_message(format!("Error: {}", e), true),
                 }
@@ -161,7 +194,7 @@ pub fn handle_key(app: &mut App, key: KeyEvent) -> Result<()> {
             if let Some((path, name)) = entry_data {
                 app.library.add(path);
                 match app.library.save() {
-                    Ok(_) => app.set_message(format!("Added: {}", name), false),
+                    Ok(_) => app.set_message(format!("+ Library: {}", name), false),
                     Err(e) => app.set_message(format!("Error saving library: {}", e), true),
                 }
             }

@@ -2,7 +2,7 @@ use anyhow::Result;
 use crossterm::event::{KeyCode, KeyEvent};
 use ratatui::{
     layout::{Constraint, Direction, Layout, Rect},
-    style::{Color, Modifier, Style},
+    style::{Modifier, Style},
     text::{Line, Span},
     widgets::{Block, Borders, List, ListItem, ListState, Paragraph},
     Frame,
@@ -14,6 +14,8 @@ use crate::{
 };
 
 pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
+    let c = app.colors();
+
     let chunks = Layout::default()
         .direction(Direction::Vertical)
         .constraints([Constraint::Min(0), Constraint::Length(3)])
@@ -38,15 +40,17 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
                 .map(|n| n.to_string_lossy().to_string())
                 .unwrap_or_else(|| path.clone());
             let exists = std::path::Path::new(path).exists();
-            let (indicator, style) = if is_active {
-                (" ▶", Style::default().fg(Color::Cyan).add_modifier(Modifier::BOLD))
+
+            let (indicator, line_style) = if is_active {
+                ("▶", Style::default().fg(c.active_item).add_modifier(Modifier::BOLD))
             } else if !exists {
-                (" !", Style::default().fg(Color::Red))
+                ("!", Style::default().fg(c.danger))
             } else {
-                ("  ", Style::default())
+                (" ", Style::default().fg(c.text_primary))
             };
+
             ListItem::new(Line::from(vec![
-                Span::styled(format!("{} {}", indicator, name), style),
+                Span::styled(format!(" {} {}", indicator, name), line_style),
             ]))
         })
         .collect();
@@ -58,28 +62,35 @@ pub fn draw(f: &mut Frame, app: &mut App, area: Rect) {
         list_state.select(Some(selected));
     }
 
-    let title = format!(" Library ({} saved) ", app.library.entries.len());
-    let list = List::new(if items.is_empty() {
-        vec![ListItem::new(Line::from(Span::styled(
-            "  No saved wallpapers. Press 'a' in the Browser panel to add.",
-            Style::default().fg(Color::DarkGray),
-        )))]
-    } else {
-        items
-    })
-    .block(
-        Block::default()
-            .borders(Borders::ALL)
-            .title(title)
-            .border_style(Style::default().fg(Color::Cyan)),
-    )
-    .highlight_style(Style::default().bg(Color::DarkGray).add_modifier(Modifier::BOLD));
+    let title = format!(" Library  {} saved ", app.library.entries.len());
+    let empty = vec![ListItem::new(Line::from(Span::styled(
+        "  Empty — press 'a' in Browser to save a wallpaper.",
+        Style::default().fg(c.text_muted),
+    )))];
+
+    let list = List::new(if items.is_empty() { empty } else { items })
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .title(Span::styled(title, Style::default().fg(c.title).add_modifier(Modifier::BOLD)))
+                .border_style(Style::default().fg(c.border_active)),
+        )
+        .highlight_style(
+            Style::default()
+                .fg(c.highlight_fg)
+                .bg(c.highlight_bg)
+                .add_modifier(Modifier::BOLD),
+        );
 
     f.render_stateful_widget(list, chunks[0], &mut list_state);
 
-    let hints = Paragraph::new(" Enter: set wallpaper  |  d: remove from library  |  ! = file missing")
-        .style(Style::default().fg(Color::DarkGray))
-        .block(Block::default().borders(Borders::ALL));
+    let hints = Paragraph::new(" Enter: set wallpaper  |  a: add from browser  |  d: remove  |  !: file missing")
+        .style(Style::default().fg(c.text_muted))
+        .block(
+            Block::default()
+                .borders(Borders::ALL)
+                .border_style(Style::default().fg(c.border_inactive)),
+        );
     f.render_widget(hints, chunks[1]);
 }
 
@@ -97,6 +108,8 @@ pub fn handle_key(app: &mut App, key: KeyEvent) -> Result<()> {
                 app.library_selected += 1;
             }
         }
+        KeyCode::Char('g') => { app.library_selected = 0; }
+        KeyCode::Char('G') => { if len > 0 { app.library_selected = len - 1; } }
         KeyCode::Enter => {
             if let Some(path) = app.library.entries.get(app.library_selected).cloned() {
                 match cmd_set(&path, None) {
@@ -106,7 +119,7 @@ pub fn handle_key(app: &mut App, key: KeyEvent) -> Result<()> {
                             .file_name()
                             .map(|n| n.to_string_lossy().to_string())
                             .unwrap_or(path.clone());
-                        app.set_message(format!("Set wallpaper: {}", name), false);
+                        app.set_message(format!("▶ Now playing: {}", name), false);
                     }
                     Err(e) => app.set_message(format!("Error: {}", e), true),
                 }
@@ -114,6 +127,10 @@ pub fn handle_key(app: &mut App, key: KeyEvent) -> Result<()> {
         }
         KeyCode::Char('d') => {
             if let Some(path) = app.library.entries.get(app.library_selected).cloned() {
+                let name = std::path::Path::new(&path)
+                    .file_name()
+                    .map(|n| n.to_string_lossy().to_string())
+                    .unwrap_or_else(|| path.clone());
                 app.library.remove(&path);
                 if let Err(e) = app.library.save() {
                     app.set_message(format!("Error: {}", e), true);
@@ -121,7 +138,7 @@ pub fn handle_key(app: &mut App, key: KeyEvent) -> Result<()> {
                     if app.library_selected > 0 && app.library_selected >= app.library.entries.len() {
                         app.library_selected -= 1;
                     }
-                    app.set_message("Removed from library", false);
+                    app.set_message(format!("Removed: {}", name), false);
                 }
             }
         }

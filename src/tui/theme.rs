@@ -11,16 +11,16 @@ pub enum Theme {
 impl Theme {
     pub fn label(&self) -> &'static str {
         match self {
-            Theme::LamessUi  => "Lamess UI",
-            Theme::Cyan      => "Cyan",
+            Theme::LamessUi   => "Lamess UI",
+            Theme::Cyan       => "Cyan",
             Theme::Monochrome => "Monochrome",
         }
     }
 
     pub fn next(&self) -> Theme {
         match self {
-            Theme::LamessUi  => Theme::Cyan,
-            Theme::Cyan      => Theme::Monochrome,
+            Theme::LamessUi   => Theme::Cyan,
+            Theme::Cyan       => Theme::Monochrome,
             Theme::Monochrome => Theme::LamessUi,
         }
     }
@@ -44,25 +44,31 @@ pub struct ThemeColors {
     pub title:           Color,
     pub status_bar_fg:   Color,
     pub help_border:     Color,
+    pub active_item:     Color,  // playing/active wallpaper indicator
 }
 
 impl Theme {
     pub fn colors(&self) -> ThemeColors {
         match self {
+            // Lamess UI
+            // Logo color #FF6A2F is logo-only per brand guide.
+            // UI accent = #FF6A2F orange (used only for active states, borders, highlights)
             Theme::LamessUi => ThemeColors {
-                border_active:   Color::Rgb(245, 208, 0),
-                border_inactive: Color::Rgb(30, 30, 30),
+                border_active:   Color::Rgb(255, 106, 47),  // #FF6A2F Lamess Orange
+                border_inactive: Color::Rgb(30, 30, 30),    // #1E1E1E Grid Line
                 highlight_fg:    Color::Rgb(0, 0, 0),
-                highlight_bg:    Color::Rgb(245, 208, 0),
+                highlight_bg:    Color::Rgb(255, 106, 47),  // orange fill
                 text_primary:    Color::Rgb(255, 255, 255),
-                text_muted:      Color::Rgb(122, 122, 122),
-                success:         Color::Rgb(57, 255, 135),
-                danger:          Color::Rgb(255, 59, 59),
-                tab_active:      Color::Rgb(245, 208, 0),
-                title:           Color::Rgb(245, 208, 0),
+                text_muted:      Color::Rgb(122, 122, 122), // #7A7A7A Dim Gray
+                success:         Color::Rgb(57, 255, 135),  // #39FF87 Confirm Green
+                danger:          Color::Rgb(255, 59, 59),   // #FF3B3B Alert Red
+                tab_active:      Color::Rgb(255, 106, 47),
+                title:           Color::Rgb(255, 106, 47),
                 status_bar_fg:   Color::Rgb(122, 122, 122),
-                help_border:     Color::Rgb(245, 208, 0),
+                help_border:     Color::Rgb(255, 106, 47),
+                active_item:     Color::Rgb(255, 106, 47),
             },
+            // Cyan
             Theme::Cyan => ThemeColors {
                 border_active:   Color::Cyan,
                 border_inactive: Color::DarkGray,
@@ -76,7 +82,9 @@ impl Theme {
                 title:           Color::Cyan,
                 status_bar_fg:   Color::DarkGray,
                 help_border:     Color::Cyan,
+                active_item:     Color::Cyan,
             },
+            // Monochrome
             Theme::Monochrome => ThemeColors {
                 border_active:   Color::White,
                 border_inactive: Color::DarkGray,
@@ -90,6 +98,7 @@ impl Theme {
                 title:           Color::White,
                 status_bar_fg:   Color::Gray,
                 help_border:     Color::White,
+                active_item:     Color::White,
             },
         }
     }
