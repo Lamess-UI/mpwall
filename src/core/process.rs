@@ -18,7 +18,8 @@ pub fn which_binary(name: &str) -> Result<()> {
     } else {
         bail!(
             "'{}' not found in PATH.\nTip: install it with: paru -S {}",
-            name, name
+            name,
+            name
         )
     }
 }
@@ -26,17 +27,15 @@ pub fn which_binary(name: &str) -> Result<()> {
 /// Spawn mpvpaper for a given monitor and video file.
 /// Returns the PID of the spawned process.
 ///
-/// Command structure:
-///   mpvpaper <monitor> <video_path> [extra_flags...]
+/// Correct mpvpaper command structure:
+///   mpvpaper [mpvpaper-flags] -o "<mpv options>" <monitor> <video_path>
 pub fn spawn_mpvpaper(
     monitor: &str,
     video_path: &str,
-    extra_flags: &[String],
+    mpv_options: &[String],
 ) -> Result<u32> {
-    // Validate mpvpaper is installed
     check_mpvpaper_installed()?;
 
-    // Validate the video file exists
     if !Path::new(video_path).exists() {
         bail!(
             "Video file not found: {}\nTip: check the path and try again.",
@@ -45,12 +44,18 @@ pub fn spawn_mpvpaper(
     }
 
     let mut cmd = Command::new("mpvpaper");
+
+    // Pass mpv options via -o flag (required by mpvpaper)
+    if !mpv_options.is_empty() {
+        let opts = mpv_options.join(" ");
+        cmd.arg("-o");
+        cmd.arg(opts);
+    }
+
+    // Monitor and video path come AFTER -o
     cmd.arg(monitor);
     cmd.arg(video_path);
-    for flag in extra_flags {
-        cmd.arg(flag);
-    }
-    // Detach stdout/stderr so the terminal stays clean
+
     cmd.stdout(Stdio::null());
     cmd.stderr(Stdio::null());
 
@@ -59,7 +64,6 @@ pub fn spawn_mpvpaper(
         .with_context(|| format!("Failed to spawn mpvpaper for monitor '{}'.", monitor))?;
 
     let pid = child.id();
-    // Detach — we store the PID in state.json and manage it manually
     std::mem::forget(child);
 
     Ok(pid)
@@ -67,10 +71,8 @@ pub fn spawn_mpvpaper(
 
 /// Kill a process by PID.
 /// Returns Ok(()) if the process was killed or was already dead.
-/// Never returns an error just because the process was already gone.
 pub fn kill_pid(pid: u32) -> Result<()> {
     if !is_pid_alive(pid) {
-        // Already dead — nothing to do, state will be cleaned by caller
         return Ok(());
     }
     let status = Command::new("kill")
@@ -80,7 +82,6 @@ pub fn kill_pid(pid: u32) -> Result<()> {
         .with_context(|| format!("Failed to run kill on PID {}", pid))?;
 
     if !status.success() {
-        // Try SIGKILL as fallback
         let _ = Command::new("kill")
             .arg("-KILL")
             .arg(pid.to_string())
@@ -89,8 +90,7 @@ pub fn kill_pid(pid: u32) -> Result<()> {
     Ok(())
 }
 
-/// Check whether a PID corresponds to a live process.
-/// Uses /proc/<pid> for efficiency — no subprocess needed.
+/// Check whether a PID corresponds to a live process via /proc.
 pub fn is_pid_alive(pid: u32) -> bool {
     Path::new(&format!("/proc/{}", pid)).exists()
 }
@@ -107,7 +107,6 @@ mod tests {
 
     #[test]
     fn nonexistent_pid_is_not_alive() {
-        // PID 0 is never a user process
         assert!(!is_pid_alive(0));
     }
 }
