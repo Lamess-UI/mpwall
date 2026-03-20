@@ -44,31 +44,32 @@ pub struct ThemeColors {
     pub title:           Color,
     pub status_bar_fg:   Color,
     pub help_border:     Color,
-    pub active_item:     Color,  // playing/active wallpaper indicator
+    pub active_item:     Color,
 }
 
 impl Theme {
     pub fn colors(&self) -> ThemeColors {
         match self {
-            // Lamess UI
-            // Logo color #FF6A2F is logo-only per brand guide.
-            // UI accent = #FF6A2F orange (used only for active states, borders, highlights)
+            // ── Lamess UI ─────────────────────────────────────────────────────
+            // Active accent  : #FF6A2F  Lamess Orange
+            // Inactive border: #3A3A3A  — raised from #1E1E1E so it is
+            //                            clearly visible on dark terminals
             Theme::LamessUi => ThemeColors {
-                border_active:   Color::Rgb(255, 106, 47),  // #FF6A2F Lamess Orange
-                border_inactive: Color::Rgb(30, 30, 30),    // #1E1E1E Grid Line
-                highlight_fg:    Color::Rgb(0, 0, 0),
-                highlight_bg:    Color::Rgb(255, 106, 47),  // orange fill
+                border_active:   Color::Rgb(255, 106, 47),  // #FF6A2F
+                border_inactive: Color::Rgb(58,  58,  58),  // #3A3A3A  visible dark gray
+                highlight_fg:    Color::Rgb(0,   0,   0),
+                highlight_bg:    Color::Rgb(255, 106, 47),
                 text_primary:    Color::Rgb(255, 255, 255),
-                text_muted:      Color::Rgb(122, 122, 122), // #7A7A7A Dim Gray
-                success:         Color::Rgb(57, 255, 135),  // #39FF87 Confirm Green
-                danger:          Color::Rgb(255, 59, 59),   // #FF3B3B Alert Red
+                text_muted:      Color::Rgb(122, 122, 122), // #7A7A7A
+                success:         Color::Rgb(57,  255, 135), // #39FF87
+                danger:          Color::Rgb(255, 59,  59),  // #FF3B3B
                 tab_active:      Color::Rgb(255, 106, 47),
                 title:           Color::Rgb(255, 106, 47),
                 status_bar_fg:   Color::Rgb(122, 122, 122),
                 help_border:     Color::Rgb(255, 106, 47),
                 active_item:     Color::Rgb(255, 106, 47),
             },
-            // Cyan
+            // ── Cyan ──────────────────────────────────────────────────────────
             Theme::Cyan => ThemeColors {
                 border_active:   Color::Cyan,
                 border_inactive: Color::DarkGray,
@@ -84,7 +85,7 @@ impl Theme {
                 help_border:     Color::Cyan,
                 active_item:     Color::Cyan,
             },
-            // Monochrome
+            // ── Monochrome ────────────────────────────────────────────────────
             Theme::Monochrome => ThemeColors {
                 border_active:   Color::White,
                 border_inactive: Color::DarkGray,

@@ -15,9 +15,14 @@ pub struct Config {
     pub loop_video: bool,
     pub volume: u8,
     pub speed: f32,
-    #[serde(default)]
+    /// Theme is stored as optional so missing key → LamessUi default.
+    /// We never write `theme = "lamess_ui"` from an old binary that didn't
+    /// know about themes, so #[serde(default)] + Option lets us detect that.
+    #[serde(default = "default_theme")]
     pub theme: Theme,
 }
+
+fn default_theme() -> Theme { Theme::LamessUi }
 
 impl Default for Config {
     fn default() -> Self {
@@ -28,7 +33,7 @@ impl Default for Config {
             loop_video: true,
             volume: 0,
             speed: 1.0,
-            theme: Theme::default(), // LamessUi
+            theme: Theme::LamessUi,
         }
     }
 }
@@ -41,10 +46,28 @@ impl Config {
             cfg.save()?;
             return Ok(cfg);
         }
+
         let content = fs::read_to_string(&path)
             .with_context(|| format!("Failed to read config from {}", path.display()))?;
-        let cfg: Config = toml::from_str(&content)
+
+        // Parse raw TOML to detect whether `theme` key was present at all.
+        // If absent (old config written before theme support), default to LamessUi
+        // and immediately persist so the key is present next run.
+        let raw: toml::Value = toml::from_str(&content)
             .with_context(|| "Failed to parse config.toml")?;
+
+        let theme_present = raw.get("theme").is_some();
+
+        let mut cfg: Config = raw
+            .try_into()
+            .with_context(|| "Failed to deserialize config")?;
+
+        if !theme_present {
+            cfg.theme = Theme::LamessUi;
+            // Persist so future loads don't repeat this migration
+            let _ = cfg.save();
+        }
+
         Ok(cfg)
     }
 
