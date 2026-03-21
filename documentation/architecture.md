@@ -19,6 +19,7 @@ mpwall is structured as three independent layers that communicate in one directi
       └──────────────────────┘
 ```
 
+
 The CLI and TUI **never** share state directly. Both call Core functions and read the result.
 
 ## Layer Responsibilities

@@ -7,6 +7,8 @@ use std::{
 
 use crate::tui::theme::Theme;
 
+pub const SCHEMA_VERSION: u32 = 1;
+
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Config {
     pub schema_version: u32,
@@ -24,7 +26,7 @@ fn default_theme() -> Theme { Theme::LamessUi }
 impl Default for Config {
     fn default() -> Self {
         Self {
-            schema_version: 1,
+            schema_version: SCHEMA_VERSION,
             wallpaper_dir: default_wallpaper_dir(),
             mpvpaper_flags: String::new(),
             loop_video: true,
@@ -82,7 +84,6 @@ impl Config {
         if self.loop_video {
             opts.push("--loop".to_string());
         }
-        // Only mute if volume is 0, otherwise pass the actual volume
         if self.volume == 0 {
             opts.push("--no-audio".to_string());
         } else {

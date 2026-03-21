@@ -147,7 +147,7 @@ fn remove_mpwall_block(content: &str) -> String {
 
 #[test]
 fn config_defaults_without_file() {
-    use mpwall::core::config::Config;
+    use mpwall::core::config::{Config, SCHEMA_VERSION};
     // Temporarily point XDG_CONFIG_HOME to a nonexistent path
     std::env::set_var("XDG_CONFIG_HOME", "/tmp/mpwall_test_nonexistent_xdg");
     let config = Config::load().expect("Config::load should succeed with no file present");
