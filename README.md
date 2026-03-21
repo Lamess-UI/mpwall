@@ -7,7 +7,7 @@
 **A terminal-native animated wallpaper manager for Hyprland.**  
 Built under the [Lamess UI](https://github.com/insadamt) design system.
 
-<img src="public/images/Lamess Symbol Logo Monochrom White Transparent.png" alt="Lamess UI" width="48"/>
+<img src="public/images/Lamess Symbol Logo Transparent.png" alt="Lamess UI" width="70"/>
 
 ---
 
