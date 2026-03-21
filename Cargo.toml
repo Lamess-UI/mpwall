@@ -1,6 +1,6 @@
 [package]
 name = "mpwall"
-version = "1.0.2"
+version = "1.0.4"
 edition = "2021"
 description = "A professional hybrid CLI/TUI live video wallpaper manager for Hyprland/Wayland"
 license = "MIT"
