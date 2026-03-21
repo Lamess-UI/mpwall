@@ -2,97 +2,80 @@
 
 ## Overview
 
-mpwall is structured as three independent layers that communicate in one direction only:
+mpwall is structured as three independent layers:
 
-```
-┌────────────┐  ┌────────────┐
-│  CLI Layer  │  │  TUI Layer  │
-│  (clap)     │  │  (ratatui)  │
-└─────┼────┘  └─────┼────┘
-           │            │
-           │            │  both delegate to ↓
-           │            │
-      ┌────┴─────────┴────┐
-      │       Core Layer        │
-      │  config / state /       │
-      │  monitor / process      │
-      └──────────────────────┘
-```
+    +-------------+     +-------------+
+    |  CLI Layer  |     |  TUI Layer  |
+    |  (clap)     |     |  (ratatui)  |
+    +------+------+     +------+------+
+           |                   |
+           +--------+----------+
+                    |
+           +--------+--------+
+           |   Core Layer    |
+           |  config / state |
+           |  monitor / proc |
+           +-----------------+
 
+The CLI and TUI never share state directly. Both call Core functions and read the result.
 
-The CLI and TUI **never** share state directly. Both call Core functions and read the result.
-
-## Layer Responsibilities
-
-### CLI Layer (`src/cli/`)
-
-- `mod.rs` — defines the `clap` command tree (subcommands, flags, help text)
-- `commands.rs` — implements each command handler by calling Core functions
-- Entry: `main.rs` parses args and dispatches, or launches TUI if no subcommand
-
-### Core Layer (`src/core/`)
+## Core Layer (src/core/)
 
 | Module | Responsibility |
 |--------|----------------|
-| `config.rs` | Load/save `config.toml`, provide hardcoded defaults, build mpvpaper flag strings |
-| `state.rs` | Load/save `state.json` and `library.json`, per-monitor wallpaper tracking |
-| `monitor.rs` | Query Hyprland via `hyprctl monitors -j`, validate and resolve monitor names |
-| `process.rs` | Spawn mpvpaper, kill by PID, check PID liveness via `/proc` |
+| config.rs | Load/save config.toml, export SCHEMA_VERSION, build mpvpaper flag strings |
+| state.rs | Load/save state.json and library.json, per-monitor wallpaper tracking |
+| monitor.rs | Query Hyprland via hyprctl monitors -j, validate monitor names |
+| process.rs | Spawn mpvpaper detached via setsid, kill by PID, check liveness via /proc |
 
-### TUI Layer (`src/tui/`)
+## TUI Layer (src/tui/)
 
 | Module | Responsibility |
 |--------|----------------|
-| `mod.rs` | Terminal setup/teardown, main event loop, 2s state poll |
-| `app.rs` | Central `App` struct — all TUI state, `refresh_state()`, panel navigation |
-| `ui.rs` | Root layout, tab bar, status bar, help overlay |
-| `panels/browser.rs` | File browser, filter mode, set wallpaper on Enter |
-| `panels/status.rs` | Per-monitor status, enable/disable autostart |
-| `panels/library.rs` | Saved wallpapers, add/remove, set from library |
-| `panels/settings.rs` | Config editor with inline validation |
+| mod.rs | Terminal setup/teardown, main event loop, 2s state poll |
+| app.rs | Central App struct, refresh_state(), panel navigation |
+| ui.rs | Root layout, tab bar, status bar, help overlay |
+| panels/browser.rs | File browser, filter mode, set wallpaper on Enter |
+| panels/status.rs | Per-monitor status, enable/disable autostart |
+| panels/library.rs | Saved wallpapers, add/remove, set from library |
+| panels/settings.rs | Config editor with inline validation |
 
-## Data Flow: `mpwall set video.mp4`
+## Data Flow: mpwall set video.mp4
 
-```
-main.rs
-  └→ cli::commands::cmd_set("video.mp4", None)
-        └→ core::config::Config::load()          → read config.toml (or defaults)
-        └→ core::state::State::load()            → read state.json
-        └→ core::monitor::resolve_monitors(None) → hyprctl monitors -j
-        └→ core::process::kill_pid(old_pid)      → SIGTERM existing process
-        └→ core::process::spawn_mpvpaper(...)    → mpvpaper eDP-1 video.mp4 --loop
-        └→ core::state::State::save()            → write state.json with new PID
-```
+    main.rs
+      -> cli::commands::cmd_set("video.mp4", None)
+            -> core::config::Config::load()
+            -> core::state::State::load()
+            -> core::monitor::resolve_monitors(None)
+            -> core::process::kill_pid(old_pid)
+            -> core::process::spawn_mpvpaper(...)   <- setsid here
+            -> core::state::State::save()
 
-## State File Format
+## Process Detachment
 
-`~/.local/share/mpwall/state.json`:
+mpvpaper is spawned using libc::setsid() via pre_exec. This creates a new session
+detaching the child from the terminal's process group. The wallpaper keeps running
+after the terminal is closed.
 
-```json
-{
-  "monitors": {
-    "eDP-1": {
-      "wallpaper_path": "/home/user/Videos/wallpapers/city.mp4",
-      "pid": 12345,
-      "autostart": true
+## State File (~/.local/share/mpwall/state.json)
+
+    {
+      "monitors": {
+        "eDP-1": {
+          "wallpaper_path": "/home/user/Videos/wallpapers/city.mp4",
+          "pid": 12345,
+          "autostart": true
+        }
+      }
     }
-  }
-}
-```
 
-State is treated as a **cache**, not a source of truth. PID liveness is always verified against `/proc/<pid>` before use.
+## Config File (~/.config/mpwall/config.toml)
 
-## Config File Format
-
-`~/.config/mpwall/config.toml`:
-
-```toml
-schema_version = 1
-wallpaper_dir = "/home/user/Videos/wallpapers"
-mpvpaper_flags = "--loop"
-loop_video = true
-volume = 0
-speed = 1.0
-```
+    schema_version = 1
+    wallpaper_dir = "/home/user/Videos/wallpapers"
+    mpvpaper_flags = ""
+    loop_video = true
+    volume = 0
+    speed = 1.0
 
 If this file does not exist, mpwall works perfectly using hardcoded defaults.
