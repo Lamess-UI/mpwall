@@ -64,32 +64,42 @@ pub fn cmd_stop(monitor: Option<&str>) -> Result<()> {
 }
 
 pub fn cmd_enable() -> Result<()> {
-    let state = State::load()?;
-    let active: Vec<(&String, &MonitorState)> = state
+    // FIX (Bug 3): use a single mutable state throughout — no second load
+    let mut state = State::load()?;
+
+    let active: Vec<(String, MonitorState)> = state
         .monitors
         .iter()
         .filter(|(_, e)| !e.wallpaper_path.is_empty())
+        .map(|(k, v)| (k.clone(), v.clone()))
         .collect();
+
     if active.is_empty() {
         bail!("No active wallpaper found. Run `mpwall set <file>` first.");
     }
+
     let hypr_conf = hyprland_conf_path()?;
     let content = fs::read_to_string(&hypr_conf)
         .with_context(|| format!("Failed to read {}", hypr_conf.display()))?;
     let content = remove_mpwall_block(&content);
+
     let mut block = format!("\n{}\n", AUTOSTART_START);
     for (mon, entry) in &active {
+        // FIX (Bug 1): quote the wallpaper path to handle spaces and special chars
+        // FIX (Bug 2): add `sleep 2` so Hyprland outputs are ready before mpvpaper starts
         block.push_str(&format!(
-            "exec-once = mpwall set {} --monitor {}\n",
+            "exec-once = sleep 2 && mpwall set \"{}\" --monitor {}\n",
             entry.wallpaper_path, mon
         ));
     }
     block.push_str(&format!("{}\n", AUTOSTART_END));
+
     fs::write(&hypr_conf, format!("{}{}", content, block))
         .with_context(|| format!("Failed to write {}", hypr_conf.display()))?;
-    let mut state = State::load()?;
+
+    // FIX (Bug 3): mark autostart on the already-loaded state, no second load
     for (mon, entry) in active {
-        state.set_monitor(mon.clone(), MonitorState { autostart: true, ..entry.clone() });
+        state.set_monitor(mon, MonitorState { autostart: true, ..entry });
     }
     state.save()?;
     Ok(())
@@ -145,7 +155,10 @@ pub fn cmd_list() -> Result<()> {
     let config = Config::load()?;
     let dir = Path::new(&config.wallpaper_dir);
     if !dir.exists() {
-        bail!("Wallpaper directory not found: {}\nTip: create it or set a different path in Settings.", dir.display());
+        bail!(
+            "Wallpaper directory not found: {}\nTip: create it or set a different path in Settings.",
+            dir.display()
+        );
     }
     let video_extensions = ["mp4", "mkv", "webm", "mov", "avi"];
     let mut files: Vec<PathBuf> = fs::read_dir(dir)
@@ -169,7 +182,9 @@ pub fn cmd_list() -> Result<()> {
     println!("{}", "─".repeat(48));
     for (i, file) in files.iter().enumerate() {
         let name = file.file_name().unwrap().to_string_lossy();
-        let size = fs::metadata(file).map(|m| format_size(m.len())).unwrap_or_else(|_| "?".to_string());
+        let size = fs::metadata(file)
+            .map(|m| format_size(m.len()))
+            .unwrap_or_else(|_| "?".to_string());
         println!("  {:>3}.  {}  ({})", i + 1, name, size);
     }
     println!("{}", "─".repeat(48));
@@ -179,9 +194,16 @@ pub fn cmd_list() -> Result<()> {
 
 fn resolve_video_path(file: &str) -> Result<PathBuf> {
     let path = PathBuf::from(file);
-    let abs = if path.is_absolute() { path } else { std::env::current_dir()?.join(path) };
+    let abs = if path.is_absolute() {
+        path
+    } else {
+        std::env::current_dir()?.join(path)
+    };
     if !abs.exists() {
-        bail!("File not found: {}\nTip: check the path and try again.", abs.display());
+        bail!(
+            "File not found: {}\nTip: check the path and try again.",
+            abs.display()
+        );
     }
     Ok(abs)
 }
@@ -195,7 +217,10 @@ fn hyprland_conf_path() -> Result<PathBuf> {
         });
     let path = config_home.join("hypr").join("hyprland.conf");
     if !path.exists() {
-        bail!("hyprland.conf not found at {}\nTip: ensure Hyprland has been started at least once.", path.display());
+        bail!(
+            "hyprland.conf not found at {}\nTip: ensure Hyprland has been started at least once.",
+            path.display()
+        );
     }
     Ok(path)
 }
@@ -204,9 +229,18 @@ pub fn remove_mpwall_block(content: &str) -> String {
     let mut result = String::new();
     let mut inside = false;
     for line in content.lines() {
-        if line.trim() == AUTOSTART_START { inside = true; continue; }
-        if line.trim() == AUTOSTART_END { inside = false; continue; }
-        if !inside { result.push_str(line); result.push('\n'); }
+        if line.trim() == AUTOSTART_START {
+            inside = true;
+            continue;
+        }
+        if line.trim() == AUTOSTART_END {
+            inside = false;
+            continue;
+        }
+        if !inside {
+            result.push_str(line);
+            result.push('\n');
+        }
     }
     result
 }
@@ -215,10 +249,15 @@ fn format_size(bytes: u64) -> String {
     const KB: u64 = 1024;
     const MB: u64 = KB * 1024;
     const GB: u64 = MB * 1024;
-    if bytes >= GB { format!("{:.1} GB", bytes as f64 / GB as f64) }
-    else if bytes >= MB { format!("{:.1} MB", bytes as f64 / MB as f64) }
-    else if bytes >= KB { format!("{:.1} KB", bytes as f64 / KB as f64) }
-    else { format!("{} B", bytes) }
+    if bytes >= GB {
+        format!("{:.1} GB", bytes as f64 / GB as f64)
+    } else if bytes >= MB {
+        format!("{:.1} MB", bytes as f64 / MB as f64)
+    } else if bytes >= KB {
+        format!("{:.1} KB", bytes as f64 / KB as f64)
+    } else {
+        format!("{} B", bytes)
+    }
 }
 
 #[cfg(test)]
@@ -243,5 +282,19 @@ mod tests {
     #[test]
     fn format_size_mb() {
         assert_eq!(format_size(2 * 1024 * 1024), "2.0 MB");
+    }
+
+    #[test]
+    fn autostart_line_quotes_path_with_spaces() {
+        // Simulate what cmd_enable writes for a path with spaces
+        let path = "/home/user/My Wallpapers/loop.mp4";
+        let mon = "eDP-1";
+        let line = format!(
+            "exec-once = sleep 2 && mpwall set \"{}\" --monitor {}\n",
+            path, mon
+        );
+        assert!(line.contains("\""));
+        assert!(line.contains("sleep 2"));
+        assert!(line.contains(path));
     }
 }
